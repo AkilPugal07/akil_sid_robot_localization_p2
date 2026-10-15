@@ -285,6 +285,10 @@ class ParticleFilter(Node):
             )
         self.particle_cloud = []
         # TODO create particles
+
+        
+
+        '''
         for _ in range(self.n_particles):
             # Create a new particle with a random position and orientation
             x = np.random.normal(xy_theta[0], 0.5)  # Add some noise to the x-coordinate
@@ -294,7 +298,7 @@ class ParticleFilter(Node):
             )  # Add some noise to the orientation
             particle = Particle(x, y, theta, w=1/self.n_particles)
             self.particle_cloud.append(particle)
-
+        '''
         self.normalize_particles()
         self.update_robot_pose()
 
