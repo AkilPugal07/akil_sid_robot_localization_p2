@@ -2,6 +2,8 @@
 
 """This is the starter code for the robot localization project"""
 
+from turtle import width
+
 import rclpy
 from threading import Thread
 from rclpy.time import Time
@@ -257,6 +259,7 @@ class ParticleFilter(Node):
         # make sure the distribution is normalized
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
+        pass
 
     def update_particles_with_laser(self, r, theta):
         """Updates the particle weights in response to the scan data
@@ -285,8 +288,27 @@ class ParticleFilter(Node):
             )
         self.particle_cloud = []
         # TODO create particles
-
         
+        bounding_box = self.occupancy_field.get_obstacle_bounding_box()
+
+        x_min = bounding_box[0][0]
+        x_max = bounding_box[0][1]
+        y_min = bounding_box[1][0]
+        y_max = bounding_box[1][1]
+
+        weight = 1
+
+        for i in range(self.n_particles):
+            temp_x = np.random.uniform(x_min, x_max, size=1)
+            temp_y = np.random.uniform(y_min, y_max, size=1)
+            temp_theta  = np.random.uniform(0, 2*math.pi, size=1)    
+
+            while self.occupancy_field.get_closest_obstacle_distance(temp_x, temp_y) == 0:
+                temp_x = np.random.uniform(x_min, x_max, size=1)
+                temp_y = np.random.uniform(y_min, y_max, size=1)
+
+            temp_particle = Particle(temp_x,temp_y, temp_theta, weight)
+            self.particle_cloud.append(temp_particle)
 
         '''
         for _ in range(self.n_particles):
