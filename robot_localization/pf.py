@@ -135,15 +135,6 @@ class ParticleFilter(Node):
             self.map_frame, self.odom_frame, postdated_timestamp
         )
 
-    def get_cell_value(self, x, y):
-        """Return the map value at (x, y): 0 free, 100 occupied, -1 unknown or off-map."""
-        col = int((x - self.occupancy_field.map.info.origin.position.x) / self.occupancy_field.map.info.resolution)
-        row = int((y - self.occupancy_field.map.info.origin.position.y) / self.occupancy_field.map.info.resolution)
-        if not (0 <= col < self.occupancy_field.map.info.width and 0 <= row < self.occupancy_field.map.info.height):
-            return -1
-        return self.occupancy_field.map.data[col + row * self.occupancy_field.map.info.width]
-        
-
     def loop_wrapper(self):
         """This function takes care of calling the run_loop function repeatedly.
         We are using a separate thread to run the loop_wrapper to work around
@@ -256,7 +247,6 @@ class ParticleFilter(Node):
 
         # TODO: modify particles using delta
 
-
     def resample_particles(self):
         """Resample the particles according to the new particle weights.
         The weights stored with each particle should define the probability that a particular
@@ -274,7 +264,6 @@ class ParticleFilter(Node):
         theta: the angle relative to the robot frame for each corresponding reading
         """
         # TODO: implement this
-
         pass
 
     def update_initial_pose(self, msg):
@@ -295,8 +284,8 @@ class ParticleFilter(Node):
                 self.odom_pose
             )
         self.particle_cloud = []
-        # TODO create particles done
-        
+        # TODO create particles
+
         bounding_box = self.occupancy_field.get_obstacle_bounding_box()
 
         x_min = bounding_box[0][0]
@@ -306,36 +295,29 @@ class ParticleFilter(Node):
 
         weight = 1
 
-        for i in range(self.n_particles):
-            temp_x = np.random.uniform(x_min, x_max)
-            temp_y = np.random.uniform(y_min, y_max)
-            temp_theta  = np.random.uniform(0, 2*math.pi)    
+        for _ in range(self.n_particles):
+            temp_x = np.random.uniform(x_min, x_max, size=1)
+            temp_y = np.random.uniform(y_min, y_max, size=1)
+            temp_theta = np.random.uniform(0, 2 * math.pi, size=1)
 
-            while not self.get_cell_value(temp_x, temp_y) == 0:
-                temp_x = np.random.uniform(x_min, x_max)
-                temp_y = np.random.uniform(y_min, y_max)
+            while (
+                self.occupancy_field.get_closest_obstacle_distance(temp_x, temp_y) == 0
+            ):
+                temp_x = np.random.uniform(x_min, x_max, size=1)
+                temp_y = np.random.uniform(y_min, y_max, size=1)
 
-            temp_particle = Particle(float(temp_x),float(temp_y), float(temp_theta), float(weight))
+            temp_particle = Particle(temp_x, temp_y, temp_theta, weight)
             self.particle_cloud.append(temp_particle)
 
-        '''
-        for _ in range(self.n_particles):
-            # Create a new particle with a random position and orientation
-            x = np.random.normal(xy_theta[0], 0.5)  # Add some noise to the x-coordinate
-            y = np.random.normal(xy_theta[1], 0.5)  # Add some noise to the y-coordinate
-            theta = np.random.normal(
-                xy_theta[2], 0.1
-            )  # Add some noise to the orientation
-            particle = Particle(x, y, theta, w=1/self.n_particles)
-            self.particle_cloud.append(particle)
-        '''
         self.normalize_particles()
         self.update_robot_pose()
 
     def normalize_particles(self):
         """Make sure the particle weights define a valid distribution (i.e. sum to 1.0)"""
-        # TODO: implement this
-        pass
+        # TODO: implement this (Done)
+        total_weight = sum(p.w for p in self.particle_cloud)
+        for particle in self.particle_cloud:
+            particle.w /= total_weight
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
