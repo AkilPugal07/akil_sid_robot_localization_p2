@@ -3,7 +3,6 @@
 """This is the starter code for the robot localization project"""
 
 from turtle import width
-
 import rclpy
 from threading import Thread
 from rclpy.time import Time
@@ -246,6 +245,10 @@ class ParticleFilter(Node):
             return
 
         # TODO: modify particles using delta
+        for p in self.particle_cloud:
+            p.x += delta[0]
+            p.y += delta[1]
+            p.theta += delta[2]
 
     def resample_particles(self):
         """Resample the particles according to the new particle weights.
@@ -284,7 +287,7 @@ class ParticleFilter(Node):
                 self.odom_pose
             )
         self.particle_cloud = []
-        # TODO create particles
+        # TODO create particles Done
 
         bounding_box = self.occupancy_field.get_obstacle_bounding_box()
 
