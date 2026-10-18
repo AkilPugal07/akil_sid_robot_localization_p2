@@ -21,6 +21,8 @@ from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
 from scipy.stats import norm
+import random
+import helper_functions as helper
 
 
 class Particle(object):
@@ -94,6 +96,9 @@ class ParticleFilter(Node):
         # TODO: define additional constants if needed
 
         self.sensor_noise = .2
+        self.random_reserve = 10
+        self.noise_theta = math.pi/16
+        self.noise = .2
         #sensor noise for calculating SD on guassian dist. .2 as placeholder, could make ros param
         
 
@@ -265,7 +270,43 @@ class ParticleFilter(Node):
         # make sure the distribution is normalized
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
-        pass
+        weight_list = []
+        for p in self.particle_cloud:
+            weight_list.append(p.w)
+        particle_cloud_prenoise = helper.draw_random_sample(self.particle_cloud, weight_list, self.n_particles-self.random_reserve)
+        for p in particle_cloud_prenoise:
+            p.x = p.x + random.uniform(self.noise*-1, self.noise)
+            p.y = p.y + random.uniform(self.noise*-1, self.noise)
+            p.theta = p.theta + random.uniform(self.noise_theta*-1, self.noise_theta)
+            p.w = 1
+
+        self.particle_cloud = []
+
+        bounding_box = self.occupancy_field.get_obstacle_bounding_box()
+
+        x_min = bounding_box[0][0]
+        x_max = bounding_box[0][1]
+        y_min = bounding_box[1][0]
+        y_max = bounding_box[1][1]
+
+        weight = 1
+
+        for _ in range(self.random_reserve):
+            temp_x = np.random.uniform(x_min, x_max)
+            temp_y = np.random.uniform(y_min, y_max)
+            temp_theta = np.random.uniform(0, 2 * math.pi)
+
+            while (
+                self.occupancy_field.get_closest_obstacle_distance(temp_x, temp_y) == 0
+            ):
+                temp_x = np.random.uniform(x_min, x_max)
+                temp_y = np.random.uniform(y_min, y_max)
+
+            temp_particle = Particle(temp_x, temp_y, temp_theta, weight)
+            self.particle_cloud.append(temp_particle)
+
+        self.particle_cloud.extend(particle_cloud_prenoise)
+        
 
     def update_particles_with_laser(self, r, theta):
         """Updates the particle weights in response to the scan data
