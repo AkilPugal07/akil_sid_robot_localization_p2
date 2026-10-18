@@ -20,6 +20,7 @@ from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
+from scipy.stats import norm
 
 
 class Particle(object):
@@ -92,6 +93,10 @@ class ParticleFilter(Node):
 
         # TODO: define additional constants if needed
 
+        self.sensor_noise = .2
+        #sensor noise for calculating SD on guassian dist. .2 as placeholder, could make ros param
+        
+
         # pose_listener responds to selection of a new approximate robot location (for instance using rviz)
         self.create_subscription(
             PoseWithCovarianceStamped, "initialpose", self.update_initial_pose, 10
@@ -160,7 +165,7 @@ class ParticleFilter(Node):
             # we were unable to get the pose of the robot corresponding to the scan timestamp
             if delta_t is not None and delta_t < Duration(seconds=0.0):
                 # we will never get this transform, since it is before our oldest one
-                self.scan_to_process = None
+                self.a_to_process = None
             return
 
         r, theta = self.transform_helper.convert_scan_to_polar_in_robot_frame(
@@ -249,6 +254,7 @@ class ParticleFilter(Node):
             p.x += delta[0]
             p.y += delta[1]
             p.theta += delta[2]
+        #delta is in odom frame, we need in map frame, Helper funcitons useful
 
     def resample_particles(self):
         """Resample the particles according to the new particle weights.
@@ -266,8 +272,25 @@ class ParticleFilter(Node):
         r: the distance readings to obstacles
         theta: the angle relative to the robot frame for each corresponding reading
         """
-        # TODO: implement this
-        pass
+        # TODO: implement this done
+        r_min = -1
+        for r_val in r:
+            if math.isfinite(r_val) and not r_val == 0:
+                r_min = r_val
+                break
+        if r_min == -1:
+            return
+        for i in r:
+            if i < r_min and not i == 0:
+                r_min = i
+
+        for p in self.particle_cloud:
+            particle_dist = self.occupancy_field.get_closest_obstacle_distance(p.x, p.y)
+            new_w = norm.pdf(particle_dist, loc=r_min, scale=self.sensor_noise)
+            if math.isfinite(new_w):
+                p.w = p.w*new_w
+            else:
+                p.w = 0
 
     def update_initial_pose(self, msg):
         """Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -289,6 +312,7 @@ class ParticleFilter(Node):
         self.particle_cloud = []
         # TODO create particles Done
 
+        #completely disregards inputted pose, maybe generate random dist around given pose?
         bounding_box = self.occupancy_field.get_obstacle_bounding_box()
 
         x_min = bounding_box[0][0]
@@ -299,18 +323,20 @@ class ParticleFilter(Node):
         weight = 1
 
         for _ in range(self.n_particles):
-            temp_x = np.random.uniform(x_min, x_max, size=1)
-            temp_y = np.random.uniform(y_min, y_max, size=1)
-            temp_theta = np.random.uniform(0, 2 * math.pi, size=1)
+            temp_x = np.random.uniform(x_min, x_max)
+            temp_y = np.random.uniform(y_min, y_max)
+            temp_theta = np.random.uniform(0, 2 * math.pi)
 
             while (
                 self.occupancy_field.get_closest_obstacle_distance(temp_x, temp_y) == 0
             ):
-                temp_x = np.random.uniform(x_min, x_max, size=1)
-                temp_y = np.random.uniform(y_min, y_max, size=1)
+                temp_x = np.random.uniform(x_min, x_max)
+                temp_y = np.random.uniform(y_min, y_max)
 
             temp_particle = Particle(temp_x, temp_y, temp_theta, weight)
             self.particle_cloud.append(temp_particle)
+
+            #size=1 outputs array, removed that
 
         self.normalize_particles()
         self.update_robot_pose()
@@ -319,8 +345,13 @@ class ParticleFilter(Node):
         """Make sure the particle weights define a valid distribution (i.e. sum to 1.0)"""
         # TODO: implement this (Done)
         total_weight = sum(p.w for p in self.particle_cloud)
-        for particle in self.particle_cloud:
-            particle.w /= total_weight
+        if total_weight == 0:
+            for particle in self.particle_cloud:
+                particle.w = 1/self.n_particles
+        else:
+            for particle in self.particle_cloud:
+                particle.w /= total_weight
+
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
