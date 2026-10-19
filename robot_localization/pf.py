@@ -349,7 +349,6 @@ class ParticleFilter(Node):
         theta: the angle relative to the robot frame for each corresponding reading
         """
         # TODO: implement this done
-        # keep every beam_step-th valid beam
         beams = []
         for i in range(0, len(r), self.beam_step):
             if math.isfinite(r[i]) and r[i] > 0:
@@ -359,7 +358,6 @@ class ParticleFilter(Node):
             return
 
         for p in self.particle_cloud:
-            # particles that drifted outside the map's free space get no weight
             if not self.is_free(p.x, p.y):
                 p.w = 0.0
                 continue
@@ -368,7 +366,6 @@ class ParticleFilter(Node):
                 x_end = p.x + r_i * math.cos(p.theta + theta_i)
                 y_end = p.y + r_i * math.sin(p.theta + theta_i)
                 dists.append(self.occupancy_field.get_closest_obstacle_distance(x_end, y_end))
-            # sum likelihoods over beams; off-map endpoints (nan) contribute 0
             new_w = np.nansum(norm.pdf(np.array(dists), loc=0, scale=self.sensor_noise))
             if math.isfinite(new_w):
                 p.w = p.w*new_w
