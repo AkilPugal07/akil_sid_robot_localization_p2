@@ -16,6 +16,12 @@ Our particle filter method maintains a set of particles, where each one is a gue
 
 1. **Initialize particle cloud**: A set of randomly generated particles are spread through out the map. Each of them is a guess of what a possible location of the robot could be.
 2. **Motion update**: Check the odometry change of the Neato and convert into the robot's frame co-ordinates. 
+
+![odometry_update_diagram](pictures/odemetry.jpeg)
+![frame_conversion](pictures/reference_frame_conv.jpeg)
+*Figure 2*
+
+
 3. **Weight update**: For each particle, we took 72 of the 360 laserscans and project them into the map frame from that particle's pose, and measure each points closes distance to the nearest wall. Particles whose projected points land on or near walls get high weights. (Double check)
 4. **Normalize the weights**: Weights are scaled to sum to 1.
 5. **Resample**: We draw a new set of particles based on their proportions ans add noise to avoid overlap. A fixed set of particles are always generated randomly to avoid the code converging at the wrong spot.
