@@ -95,13 +95,12 @@ class ParticleFilter(Node):
 
         # TODO: define additional constants if needed
 
-        self.sensor_noise = .2
+        self.sensor_noise = 0.2
         self.random_reserve = 10
-        self.noise_theta = math.pi/16
-        self.noise = .2
+        self.noise_theta = math.pi / 16
+        self.noise = 0.2
         self.beam_step = 5  # use every 5th lidar beam in the laser update
-        #sensor noise for calculating SD on guassian dist. .2 as placeholder, could make ros param
-        
+        # sensor noise for calculating SD on guassian dist. .2 as placeholder, could make ros param
 
         # pose_listener responds to selection of a new approximate robot location (for instance using rviz)
         self.create_subscription(
@@ -219,6 +218,8 @@ class ParticleFilter(Node):
         """
         # first make sure that the particle weights are normalized
         self.normalize_particles()
+
+        # Computing robot pose using the mean method (using weighted averages)
         best = self.particle_cloud[0]
         weighted_x = 0
         weighted_y = 0
@@ -228,19 +229,16 @@ class ParticleFilter(Node):
         for p in self.particle_cloud:
             weighted_x += p.x * p.w
             weighted_y += p.y * p.w
-            s += p.w *  math.sin(p.theta)
+            s += p.w * math.sin(p.theta)
             c += p.w * math.cos(p.theta)
 
-        weighted_theta = math.atan2(s,c)
+        weighted_theta = math.atan2(s, c)
 
+        # Creating type particle with the mean pose
         best = Particle(weighted_x, weighted_y, weighted_theta, 1.0)
         self.robot_pose = best.as_pose()
         print(f"pose: {weighted_x} {weighted_y} {weighted_theta}")
-     
 
-
-
-        # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
         if hasattr(self, "odom_pose"):
             self.transform_helper.fix_map_to_odom_transform(
@@ -250,8 +248,6 @@ class ParticleFilter(Node):
             self.get_logger().warn(
                 "Can't set map->odom transform since no odom data received"
             )
-
-        
 
     def update_particles_with_odom(self):
         """Update the particles using the newly given odometry pose.
@@ -276,15 +272,16 @@ class ParticleFilter(Node):
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
+        # Wrong method since this was in the odom frame
         # for p in self.particle_cloud:
         #     p.x += delta[0]
         #     p.y += delta[1]
         #     p.theta += delta[2]
 
+        # Convering odom frame to map frame
         old_theta = old_odom_xy_theta[2]
-        local_dx = math.cos(old_theta)*delta[0] + math.sin(old_theta)*delta[1] 
-        local_dy = -math.sin(old_theta)*delta[0] + math.cos(old_theta)*delta[1]
+        local_dx = math.cos(old_theta) * delta[0] + math.sin(old_theta) * delta[1]
+        local_dy = -math.sin(old_theta) * delta[0] + math.cos(old_theta) * delta[1]
 
         dtheta = self.transform_helper.angle_diff(new_odom_xy_theta[2], old_theta)
         print(f"odom delta: {local_dx} {local_dy} {dtheta}")
@@ -292,9 +289,6 @@ class ParticleFilter(Node):
             p.x += math.cos(p.theta) * local_dx - math.sin(p.theta) * local_dy
             p.y += math.sin(p.theta) * local_dx + math.cos(p.theta) * local_dy
             p.theta = self.transform_helper.angle_normalize(p.theta + dtheta)
-
-
-        #delta is in odom frame, we need in map frame, Helper funcitons useful
 
     def resample_particles(self):
         """Resample the particles according to the new particle weights.
@@ -304,17 +298,21 @@ class ParticleFilter(Node):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+
+        # Draw random samples based on particle weights
         weight_list = []
         for p in self.particle_cloud:
             weight_list.append(p.w)
-        particle_cloud_prenoise = helper.draw_random_sample(self.particle_cloud, weight_list, self.n_particles-self.random_reserve)
+        particle_cloud_prenoise = helper.draw_random_sample(
+            self.particle_cloud, weight_list, self.n_particles - self.random_reserve
+        )
         for p in particle_cloud_prenoise:
-            p.x = p.x + random.uniform(self.noise*-1, self.noise)
-            p.y = p.y + random.uniform(self.noise*-1, self.noise)
-            p.theta = self.transform_helper.angle_normalize(p.theta + random.uniform(self.noise_theta*-1, self.noise_theta))
+            p.x = p.x + random.uniform(self.noise * -1, self.noise)
+            p.y = p.y + random.uniform(self.noise * -1, self.noise)
+            p.theta = self.transform_helper.angle_normalize(
+                p.theta + random.uniform(self.noise_theta * -1, self.noise_theta)
+            )
             p.w = 1.0
-
 
         self.particle_cloud = []
 
@@ -327,14 +325,13 @@ class ParticleFilter(Node):
 
         weight = 1.0
 
+        # Add random particles to the particle cloud to maintain diversity
         for _ in range(self.random_reserve):
             temp_x = np.random.uniform(x_min, x_max)
             temp_y = np.random.uniform(y_min, y_max)
             temp_theta = np.random.uniform(0, 2 * math.pi)
 
-            while (
-                not self.is_free(temp_x, temp_y)
-            ):
+            while not self.is_free(temp_x, temp_y):
                 temp_x = np.random.uniform(x_min, x_max)
                 temp_y = np.random.uniform(y_min, y_max)
 
@@ -351,7 +348,7 @@ class ParticleFilter(Node):
         r: the distance readings to obstacles
         theta: the angle relative to the robot frame for each corresponding reading
         """
-        # TODO: implement this done
+        # Process laser scan data to create beams
         beams = []
         for i in range(0, len(r), self.beam_step):
             if math.isfinite(r[i]) and r[i] > 0:
@@ -362,6 +359,7 @@ class ParticleFilter(Node):
             return
         print(f"beams: {len(beams)}")
 
+        # Update particle weights based on the laser scan data
         for p in self.particle_cloud:
             if not self.is_free(p.x, p.y):
                 p.w = 0.0
@@ -370,10 +368,12 @@ class ParticleFilter(Node):
             for r_i, theta_i in beams:
                 x_end = p.x + r_i * math.cos(p.theta + theta_i)
                 y_end = p.y + r_i * math.sin(p.theta + theta_i)
-                dists.append(self.occupancy_field.get_closest_obstacle_distance(x_end, y_end))
+                dists.append(
+                    self.occupancy_field.get_closest_obstacle_distance(x_end, y_end)
+                )
             new_w = np.nansum(norm.pdf(np.array(dists), loc=0, scale=self.sensor_noise))
             if math.isfinite(new_w):
-                p.w = p.w*new_w
+                p.w = p.w * new_w
             else:
                 p.w = 0.0
         print(f"max w: {max(p.w for p in self.particle_cloud)}")
@@ -396,11 +396,11 @@ class ParticleFilter(Node):
                 self.odom_pose
             )
         self.particle_cloud = []
-        # TODO create particles Done
 
-        #completely disregards inputted pose, maybe generate random dist around given pose?
+        # completely disregards inputted pose, maybe generate random dist around given pose?
         bounding_box = self.occupancy_field.get_obstacle_bounding_box()
 
+        # Get the bounding box coordinates
         x_min = bounding_box[0][0]
         x_max = bounding_box[0][1]
         y_min = bounding_box[1][0]
@@ -408,14 +408,13 @@ class ParticleFilter(Node):
 
         weight = 1
 
+        # Add random particles to the particle cloud to maintain diversity
         for _ in range(self.n_particles):
             temp_x = np.random.uniform(x_min, x_max)
             temp_y = np.random.uniform(y_min, y_max)
             temp_theta = np.random.uniform(0, 2 * math.pi)
 
-            while (
-                not self.is_free(temp_x, temp_y)
-            ):
+            while not self.is_free(temp_x, temp_y):
                 temp_x = np.random.uniform(x_min, x_max)
                 temp_y = np.random.uniform(y_min, y_max)
 
@@ -427,7 +426,8 @@ class ParticleFilter(Node):
         self.update_robot_pose()
 
     def is_free(self, x, y):
-        """Return True if (x, y) is a known free cell in the map (not unknown/outside or occupied)"""
+        """Return True if (x, y) is a known free cell
+        in the map (not unknown/outside or occupied)"""
         info = self.occupancy_field.map.info
         i = int((x - info.origin.position.x) / info.resolution)
         j = int((y - info.origin.position.y) / info.resolution)
@@ -437,12 +437,13 @@ class ParticleFilter(Node):
 
     def normalize_particles(self):
         """Make sure the particle weights define a valid distribution (i.e. sum to 1.0)"""
-        # TODO: implement this (Done)
+
+        # Normalize the particle weights
         total_weight = sum(p.w for p in self.particle_cloud)
         if total_weight == 0:
             print("w all 0")
             for particle in self.particle_cloud:
-                particle.w = 1/self.n_particles
+                particle.w = 1 / self.n_particles
         else:
             for particle in self.particle_cloud:
                 particle.w /= total_weight
@@ -451,8 +452,10 @@ class ParticleFilter(Node):
         print(f"w sum: {new_total}")
         assert math.isclose(new_total, 1.0, abs_tol=1e-6)
 
-
     def publish_particles(self, timestamp):
+        """
+        Publish the current particle cloud to the particle_cloud topic
+        """
         msg = ParticleCloud()
         msg.header.frame_id = self.map_frame
         msg.header.stamp = timestamp
@@ -461,6 +464,7 @@ class ParticleFilter(Node):
         self.particle_pub.publish(msg)
 
     def scan_received(self, msg):
+        """Callback function to handle incoming laser scans"""
         self.last_scan_timestamp = msg.header.stamp
         # we throw away scans until we are done processing the previous scan
         # self.scan_to_process is set to None in the run_loop
