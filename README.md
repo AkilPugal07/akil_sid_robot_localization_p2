@@ -8,7 +8,8 @@ The goal of a particle filter is to answer the grounding question "Where am I?" 
 ![Screenshot2](pictures/ss2.png)
 
 *Figure 1*
-
+## Approach
+At a high level, the particle filter first initializes particles randomly spread throughout the zone with obstacles (largely this covers the areas we have data on). These particles are positions and angles (poses) the robot could possibly be at on the map. The actual sensor readings from the robot are then compared to what each particle would see if the robot was at the particle's position. Based on how far off those readings are, the particle is given a weight, and particles with higher weights are more likely to persist to the next iteration (with some nosie). The idea is that over time, particles with the closest readings will form a clump in the map of where the robot actually is, and taking a weighted average/mode of the particle cloud should give a pretty good estimate over time of where the robot is. 
 
 ## Design Decisions
 Our original implementation of the particle filter involved factoring in only the closest laser scan to the real robot. We then sample this value through normalpdf with a mean of the actual closest reading and standard deviation of typical sensor noise for a sensor of our type. The output p-value would then be our weight for the particle. This ended up sacrificing too much accuracy for speed, and we decided to use 72 (every fifth of the 360 lidar scans) to determine a particle's accuracy, as well as changing our method for calculating weight.
@@ -33,7 +34,7 @@ We also made the decision to save a subset of particles to be completely randoml
 
 1. Since noise is required for an implementation of a particle filter, this adds an element of stochasticity to the filter's result. This creates run-to-run variance, which could lead to two problems. It can lead to us re-running non-functional iterations of the particle filter in hopes that we got a bad iteration, and not trusting mostly functional versions. This creates difficulty in improving the filter, since it is sometimes hard to understand how much impact a given change actually made.
 2. In large repositories, it is important to test individual modules of codebases to make sure you understand which portion of the code is not behaving properly.
-3. More particles is not always better, sometimes leads to much slower convergence and the simulation could run out of time.
+3. More particles is not always better, sometimes leads to much slower convergence and the simulation could run out of time. This can apply to pretty much any parameter for other project, like clock speed for instance.
 ___
 
 ![Screenshot](pictures/ss1.png)

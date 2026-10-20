@@ -235,6 +235,7 @@ class ParticleFilter(Node):
 
         best = Particle(weighted_x, weighted_y, weighted_theta, 1.0)
         self.robot_pose = best.as_pose()
+        print(f"pose: {weighted_x} {weighted_y} {weighted_theta}")
      
 
 
@@ -286,6 +287,7 @@ class ParticleFilter(Node):
         local_dy = -math.sin(old_theta)*delta[0] + math.cos(old_theta)*delta[1]
 
         dtheta = self.transform_helper.angle_diff(new_odom_xy_theta[2], old_theta)
+        print(f"odom delta: {local_dx} {local_dy} {dtheta}")
         for p in self.particle_cloud:
             p.x += math.cos(p.theta) * local_dx - math.sin(p.theta) * local_dy
             p.y += math.sin(p.theta) * local_dx + math.cos(p.theta) * local_dy
@@ -340,6 +342,7 @@ class ParticleFilter(Node):
             self.particle_cloud.append(temp_particle)
 
         self.particle_cloud.extend(particle_cloud_prenoise)
+        print(f"resampled: {len(self.particle_cloud)}")
 
         self.normalize_particles()
 
@@ -355,7 +358,9 @@ class ParticleFilter(Node):
                 beams.append((r[i], theta[i]))
 
         if not beams:
+            print("no beams")
             return
+        print(f"beams: {len(beams)}")
 
         for p in self.particle_cloud:
             if not self.is_free(p.x, p.y):
@@ -371,6 +376,7 @@ class ParticleFilter(Node):
                 p.w = p.w*new_w
             else:
                 p.w = 0.0
+        print(f"max w: {max(p.w for p in self.particle_cloud)}")
 
     def update_initial_pose(self, msg):
         """Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -416,6 +422,7 @@ class ParticleFilter(Node):
             temp_particle = Particle(temp_x, temp_y, temp_theta, weight)
             self.particle_cloud.append(temp_particle)
 
+        print(f"init: {len(self.particle_cloud)}")
         self.normalize_particles()
         self.update_robot_pose()
 
@@ -433,11 +440,16 @@ class ParticleFilter(Node):
         # TODO: implement this (Done)
         total_weight = sum(p.w for p in self.particle_cloud)
         if total_weight == 0:
+            print("w all 0")
             for particle in self.particle_cloud:
                 particle.w = 1/self.n_particles
         else:
             for particle in self.particle_cloud:
                 particle.w /= total_weight
+
+        new_total = sum(p.w for p in self.particle_cloud)
+        print(f"w sum: {new_total}")
+        assert math.isclose(new_total, 1.0, abs_tol=1e-6)
 
 
     def publish_particles(self, timestamp):
