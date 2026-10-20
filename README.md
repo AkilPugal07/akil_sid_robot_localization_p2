@@ -45,12 +45,16 @@ On each resample, we draw 290 particles in proportion to their normalized weight
 ***Weighted mean for robot pose:***
 We estimate the robot’s pose as the weighted mean of all particles, not the single highest-weight particle. The best single particle can jump around between iterations, while the mean uses the whole cloud and is smoother. For heading, we average the sine and cosine of each particle’s angle and recombine with atan2, since averaging raw angles breaks near ±π. The weakness is that if the cloud splits into two clusters, the mean can land between them, where there is no real hypothesis. We accepted this because the cloud usually collapses to one cluster after a few updates. 
 
-
-
+## Testing
+Unit testing was a difficult process since we needed a ROS node running while the testing had to be done. To bypass this, we created a fake 10x10 map with a wall in the middle and initialized all the helper functions and methods that we wanted to be checked in the particle filter file to make sure the functions were behaving as expected. We tested the following:
+1. **Test if all the particles were initialized**: This test initializes 50 particles inside the bounding box and checks if all them were created. This was done to check the initialize_particle_cloud() method to see if it was behaving as intended. The unit test passed indicating that the method was able to successfully create and initialize the particle cloud
+2. **Test if resampling keeps the same amount of particles**: This test resamples the particles and then checks if the number of particles inside the bounding box was same as the time it was initialized. This was a test to check if our resampling function keeps the number of particles constant and doesn't delete any of them. The unit test passed, indicating to us that the function was not deleting particles when resampling particles
+3. **Test weights sum up to 1**: This test normalizes all the particles in the particle cloud and checks if the weights add up to 1. The unit test passed indicating that our normalize method was working as intended and was not breaking.
+4. **Test if all 72 beams are used**: This test initializes particle filter and calls on used beams helper function to check if all 72 of the lidar scans were used. We implemented this test to ensure whether the code utilized all of the 72 beams and none were skipped. The unit test passed indicating to us that all of them were used and none were skipped.
 
 ## Challenges
 1. **Converting between reference frames**: This was challenging when implementing updates through odometry. Initially, we simply added added the odom delta to the particle, but this caused the particle cloud to drift in the wrong direction. We fixed it by rotating the delta into the robot’s previous frame, then rotating that robot-frame motion by each particle’s own heading before applying it. (double check and include picture of math)
-2. **Debugging inside a ROS node**: We couldn’t easily unit test, so syntax and runtime errors were slow to find. We handled this with step-by-step print summaries and an assert on the weights (see Testing), which let us isolate which step was failing.
+2. **Debugging inside a ROS node**: We couldn’t easily unit test during the initial portion of the project since we had to have a ROS node running to see if it worked. So we instead created an small 10*10 map with a mall along x = 5 and initialized all the function we wanted to test to see if the functions worked as intended. We didn't realize this method till most of the functions were implemented and used debug print statements in pf.py to check if they worked as intended.
 3. **Staying on the one beam method for too long**: We spent a lot of time debugging the one beam method, unsure whether it was a bug or a flawed idea. But after thinking about the issue, we realized that checking one beam could cause so many particles weight to be really high since there a lot of areas on the map where the condition could be true. So we switched to multiple scans to ensure the weights can be assigned accurately to the particles. This also solved our issue of the code not converging as well.
 
 ## Future Improvements
@@ -58,11 +62,6 @@ We estimate the robot’s pose as the weighted mean of all particles, not the si
 2. **Make the random particle count adaptive**: We always place 10 particles randomly, which is wasted effort once the filter has converged and too few if the robot is picked up. Raising the count when the average particle weight drops, and lowering it when confident, would help in both cases.
 3. **Expose constants as ROS parameters**: Particle count, noise levels, beam step, and random reserve are hardcoded, so every experiment required a code edit. Parameters would make tuning faster and easier to compare across runs, which would also help with the run-to-run variance we noted in Lessons Learned.
 
-## Testing
-Since unit testing inside a ROS node was difficult, we verified our code with print statements and an assert while running the filter on bag files in rviz. Each step of the filter prints a short summary, like the odometry delta, the number of laser beams scored, the highest particle weight, and the estimated pose, so we could tell which step was misbehaving instead of only seeing that the final pose was wrong. The odometry delta print was the most useful, since it showed our first odometry update was moving particles in the odom frame instead of the robot's frame.
-
-
-We also assert that the particle weights sum to 1 at the end of normalizing. This catches NaN or infinite weights as soon as they appear, and paired with a print for when every weight is zero, it told us when our weighting was too harsh for the filter to converge.
 
 ## Lessons Learned
 1. Because a particle filter relies on random noise, two runs of identical code can behave differently. A single good or bad run told us little, and we sometimes re-ran a build hoping for a better result instead of finding the cause. In the future we would run each version several times and change only one parameter at a time, so we can tell whether a change actually helped.

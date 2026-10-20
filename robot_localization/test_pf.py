@@ -19,6 +19,7 @@ class FakeTF:
         return self.angle_normalize(a - b)
 
     def fix_map_to_odom_transform(self, *args):
+        """Stub for fix_map_to_odom_transform. Does nothing."""
         pass
 
 
