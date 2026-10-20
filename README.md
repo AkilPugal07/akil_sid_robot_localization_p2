@@ -84,3 +84,6 @@ ___
 ![Screenshot](pictures/ss1.png)
 
 *Figure 6: Full map view in rviz. The particle cloud has converged in the hallway, and the laser scan (red) matches the map walls.*
+
+Video demo link:
+https://youtu.be/4GTl__0oRmY
