@@ -176,6 +176,8 @@ class ParticleFilter(Node):
         r, theta = self.transform_helper.convert_scan_to_polar_in_robot_frame(
             msg, self.base_frame
         )
+
+        # print out the first range and angle for debugging purposes
         print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
         # clear the current scan so that we can process the next one
         self.scan_to_process = None
@@ -184,6 +186,7 @@ class ParticleFilter(Node):
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(
             self.odom_pose
         )
+        # print out the odometry pose for debugging purposes
         print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         if not self.current_odom_xy_theta:
@@ -237,6 +240,7 @@ class ParticleFilter(Node):
         # Creating type particle with the mean pose
         best = Particle(weighted_x, weighted_y, weighted_theta, 1.0)
         self.robot_pose = best.as_pose()
+        # print out the robot pose for debugging purposes
         print(f"pose: {weighted_x} {weighted_y} {weighted_theta}")
 
         # just to get started we will fix the robot's pose to always be at the origin
@@ -284,6 +288,7 @@ class ParticleFilter(Node):
         local_dy = -math.sin(old_theta) * delta[0] + math.cos(old_theta) * delta[1]
 
         dtheta = self.transform_helper.angle_diff(new_odom_xy_theta[2], old_theta)
+        # print out the odometry delta for debugging purposes
         print(f"odom delta: {local_dx} {local_dy} {dtheta}")
         for p in self.particle_cloud:
             p.x += math.cos(p.theta) * local_dx - math.sin(p.theta) * local_dy
@@ -339,6 +344,7 @@ class ParticleFilter(Node):
             self.particle_cloud.append(temp_particle)
 
         self.particle_cloud.extend(particle_cloud_prenoise)
+        # print out the number of particles in the cloud to check if they stay constant
         print(f"resampled: {len(self.particle_cloud)}")
 
         self.normalize_particles()
@@ -376,6 +382,7 @@ class ParticleFilter(Node):
                 p.w = p.w * new_w
             else:
                 p.w = 0.0
+        # print out the maximum weight for debugging purposes
         print(f"max w: {max(p.w for p in self.particle_cloud)}")
 
     def update_initial_pose(self, msg):
@@ -421,6 +428,7 @@ class ParticleFilter(Node):
             temp_particle = Particle(temp_x, temp_y, temp_theta, weight)
             self.particle_cloud.append(temp_particle)
 
+        # print out the number of particles in the cloud to check if they stay constant
         print(f"init: {len(self.particle_cloud)}")
         self.normalize_particles()
         self.update_robot_pose()
@@ -449,6 +457,7 @@ class ParticleFilter(Node):
                 particle.w /= total_weight
 
         new_total = sum(p.w for p in self.particle_cloud)
+        # print out the maximum weight to check they add up to 1.0
         print(f"w sum: {new_total}")
         assert math.isclose(new_total, 1.0, abs_tol=1e-6)
 
