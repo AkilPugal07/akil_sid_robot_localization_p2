@@ -7,25 +7,37 @@ The goal of a particle filter is to answer the grounding question "Where am I?" 
 
 ![Screenshot2](pictures/ss2.png)
 
-*Figure 1*
+*Figure 1: Close-up of the converged particle cloud in rviz. The red arrow is the estimated robot pose and the red laser scan lines up with the wall in the map.*
 ## Approach
 
 Our particle filter method maintains a set of particles, where each one is a guess of what the robot's pose (x, y, heading) is. Each iteration of the particle filtering methods goes through the following steps
 
 ![diagram](pictures/diag.jpeg)
 
+*Figure 2: The particle filter loop. 300 particles are initialized, then the filter repeatedly moves them with odometry, weights them with laser data, computes the weighted mean pose (circular mean for θ), and resamples 290 particles plus 10 random ones.*
+
 1. **Initialize particle cloud**: A set of randomly generated particles are spread through out the map. Each of them is a guess of what a possible location of the robot could be.
 2. **Motion update**: Check the odometry change of the Neato and convert into the robot's frame co-ordinates. 
 
 ![odometry_update_diagram](pictures/odemetry.jpeg)
+
+*Figure 3: The odometry delta broken into local dx, dy, and dθ in the robot's own frame.*
+
 ![frame_conversion](pictures/reference_frame_conv.jpeg)
-*Figure 2*
+
+*Figure 4: Rotating the local x and y motion by the heading θ to get the change in map-frame x and y.*
 
 
 3. **Weight update**: For each particle, we took 72 of the 360 laserscans and project them into the map frame from that particle's pose, and measure each points closes distance to the nearest wall. Particles whose projected points land on or near walls get high weights. (Double check)
 4. **Normalize the weights**: Weights are scaled to sum to 1.
 5. **Resample**: We draw a new set of particles based on their proportions ans add noise to avoid overlap. A fixed set of particles are always generated randomly to avoid the code converging at the wrong spot.
 6. **Estimate**: We update the the best guess of the robot pose based on the weighted mean of the particles. Over time through multiple iterations, the particles cluster around the Neato's true position.
+
+### ROS Node Structure
+
+![rqt_graph](pictures/rqt_graph.png)
+
+*Figure 5: rqt graph of the system while running from a bag file. The `/pf` node subscribes to `/scan`, `/tf`, and `/tf_static`, and publishes `/particle_cloud` and the map→odom transform on `/tf`. `/map_server` provides `/map`, and the recorder captures the output.*
 
 
 ## Design Decisions
@@ -34,7 +46,7 @@ Our particle filter method maintains a set of particles, where each one is a gue
 Our first implementation scored each particle using only the single closest laser reading, passing it through a normal PDF centered on the robot’s actual reading. This was fast, but one beam says very little about where the robot is, since many different poses produce the same closest-wall distance. We switched to every fifth beam (beam_step = 5), which gives 72 of the 360 readings. We skip any reading that is infinite or zero, so the actual number of beams scored per update can be a little under 72.
 
 ***Scoring by distance to the nearest wall:***
-TODO
+Each projected beam endpoint is scored with a Gaussian centered at zero distance from the nearest obstacle (σ = 0.2 m), and the scores for all beams are summed, so particles whose scan lines up with the walls get the highest weights.
 
 ***Random Initialization across the whole map:***
 We decided to not start up a gaussian distribution of the particle cloud because it could cause the code to converge at the wrong spot. So we  sample 300 particles uniformly within the map's bounding box. We also reject particles that might land on an obstacle by only letting it populate on the free spaces of the map with a random heading from 0 to 2*pi. The tradeoff is slower initial convergence, since most particles start far from the robot. In exchange, the filter works from any starting position with no manual initial pose, which is also why we ignore the pose passed in from rviz.
@@ -70,4 +82,5 @@ Unit testing was a difficult process since we needed a ROS node running while th
 ___
 
 ![Screenshot](pictures/ss1.png)
-*Figure 2*
+
+*Figure 6: Full map view in rviz. The particle cloud has converged in the hallway, and the laser scan (red) matches the map walls.*
