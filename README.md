@@ -12,6 +12,8 @@ The goal of a particle filter is to answer the grounding question "Where am I?" 
 
 Our particle filter method maintains a set of particles, where each one is a guess of what the robot's pose (x, y, heading) is. Each iteration of the particle filtering methods goes through the following steps
 
+![diagram](pictures/diag.jpeg)
+
 1. Initialize particle cloud: A set of randomly generated particles are spread through out the map. Each of them is a guess of what a possible location of the robot could be.
 2. Motion update: Check the odometry change of the Neato and convert into the robot's frame co-ordinates. 
 3. Weight update: For each particle, we took 72 of the 360 laserscans and project them into the map frame from that particle's pose, and measure each points closes distance to the nearest wall. Particles whose projected points land on or near walls get high weights. (Double check)
@@ -38,12 +40,12 @@ Weighted mean for robot pose:
 We estimate the robot’s pose as the weighted mean of all particles, not the single highest-weight particle. The best single particle can jump around between iterations, while the mean uses the whole cloud and is smoother. For heading, we average the sine and cosine of each particle’s angle and recombine with atan2, since averaging raw angles breaks near ±π. The weakness is that if the cloud splits into two clusters, the mean can land between them, where there is no real hypothesis. We accepted this because the cloud usually collapses to one cluster after a few updates. 
 
 
-![diagram](pictures/diag.jpeg)
+
 
 ## Challenges
 1. Converting between reference frames: This was challenging when implementing updates through odometry. Initially, we simply added added the odom delta to the particle, but this caused the particle cloud to drift in the wrong direction. We fixed it by rotating the delta into the robot’s previous frame, then rotating that robot-frame motion by each particle’s own heading before applying it. (double check and include picture of math)
 2. Debugging inside a ROS node: We couldn’t easily unit test, so syntax and runtime errors were slow to find. We handled this with step-by-step print summaries and an assert on the weights (see Testing), which let us isolate which step was failing.
-3. Staying on the one beam method for too long: We spent a lot of time debugging the one beam method, unsure whether it was a bug or a flawed idea. But after thinking about the issue, we realized that checking one beam could cause so many particles weight to be really high since there a lot of areas on the map where the condition could be true. So we switched to multiple scans to ensure the weights can be assigned accurately to the particles. This also caused our issue of the code not converging as well.
+3. Staying on the one beam method for too long: We spent a lot of time debugging the one beam method, unsure whether it was a bug or a flawed idea. But after thinking about the issue, we realized that checking one beam could cause so many particles weight to be really high since there a lot of areas on the map where the condition could be true. So we switched to multiple scans to ensure the weights can be assigned accurately to the particles. This also solved our issue of the code not converging as well.
 
 ## Future Improvements
 1. Adding noise to the motion update: Right now every particle moves by exactly the odometry delta, and noise is only added at resampling. Adding noise proportional to the distance and rotation traveled would model wheel slip and drift more realistically and keep the cloud better spread during long movements.
