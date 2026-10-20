@@ -178,7 +178,7 @@ class ParticleFilter(Node):
         )
 
         # print out the first range and angle for debugging purposes
-        print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
         # clear the current scan so that we can process the next one
         self.scan_to_process = None
 
@@ -187,7 +187,7 @@ class ParticleFilter(Node):
             self.odom_pose
         )
         # print out the odometry pose for debugging purposes
-        print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
+        # print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         if not self.current_odom_xy_theta:
             self.current_odom_xy_theta = new_odom_xy_theta
@@ -241,7 +241,7 @@ class ParticleFilter(Node):
         best = Particle(weighted_x, weighted_y, weighted_theta, 1.0)
         self.robot_pose = best.as_pose()
         # print out the robot pose for debugging purposes
-        print(f"pose: {weighted_x} {weighted_y} {weighted_theta}")
+        # print(f"pose: {weighted_x} {weighted_y} {weighted_theta}")
 
         # just to get started we will fix the robot's pose to always be at the origin
         if hasattr(self, "odom_pose"):
@@ -289,7 +289,7 @@ class ParticleFilter(Node):
 
         dtheta = self.transform_helper.angle_diff(new_odom_xy_theta[2], old_theta)
         # print out the odometry delta for debugging purposes
-        print(f"odom delta: {local_dx} {local_dy} {dtheta}")
+        # print(f"odom delta: {local_dx} {local_dy} {dtheta}")
         for p in self.particle_cloud:
             p.x += math.cos(p.theta) * local_dx - math.sin(p.theta) * local_dy
             p.y += math.sin(p.theta) * local_dx + math.cos(p.theta) * local_dy
@@ -345,7 +345,7 @@ class ParticleFilter(Node):
 
         self.particle_cloud.extend(particle_cloud_prenoise)
         # print out the number of particles in the cloud to check if they stay constant
-        print(f"resampled: {len(self.particle_cloud)}")
+        # print(f"resampled: {len(self.particle_cloud)}")
 
         self.normalize_particles()
 
@@ -361,9 +361,9 @@ class ParticleFilter(Node):
                 beams.append((r[i], theta[i]))
 
         if not beams:
-            print("no beams")
+            # print("no beams")
             return
-        print(f"beams: {len(beams)}")
+        # print(f"beams: {len(beams)}")
 
         # Update particle weights based on the laser scan data
         for p in self.particle_cloud:
@@ -383,7 +383,7 @@ class ParticleFilter(Node):
             else:
                 p.w = 0.0
         # print out the maximum weight for debugging purposes
-        print(f"max w: {max(p.w for p in self.particle_cloud)}")
+        # print(f"max w: {max(p.w for p in self.particle_cloud)}")
 
     def update_initial_pose(self, msg):
         """Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -429,7 +429,7 @@ class ParticleFilter(Node):
             self.particle_cloud.append(temp_particle)
 
         # print out the number of particles in the cloud to check if they stay constant
-        print(f"init: {len(self.particle_cloud)}")
+        # print(f"init: {len(self.particle_cloud)}")
         self.normalize_particles()
         self.update_robot_pose()
 
@@ -458,7 +458,7 @@ class ParticleFilter(Node):
 
         new_total = sum(p.w for p in self.particle_cloud)
         # print out the maximum weight to check they add up to 1.0
-        print(f"w sum: {new_total}")
+        # print(f"w sum: {new_total}")
         assert math.isclose(new_total, 1.0, abs_tol=1e-6)
 
     def publish_particles(self, timestamp):
